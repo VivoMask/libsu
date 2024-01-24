@@ -38,7 +38,6 @@ public final class BuilderImpl extends Shell.Builder {
     long timeout = 20;
     private int flags = 0;
     private Shell.Initializer[] initializers;
-    private String[] command;
 
     boolean hasFlags(int mask) {
         return (flags & mask) == mask;
@@ -58,13 +57,6 @@ public final class BuilderImpl extends Shell.Builder {
         return this;
     }
 
-    @NonNull
-    @Override
-    public Shell.Builder setCommands(String... c) {
-        command = c;
-        return this;
-    }
-
     public void setInitializersImpl(Class<? extends Shell.Initializer>[] clz) {
         initializers = new Shell.Initializer[clz.length];
         for (int i = 0; i < clz.length; ++i) {
@@ -78,13 +70,15 @@ public final class BuilderImpl extends Shell.Builder {
         }
     }
 
-    private Shell start() {
-        Shell shell = null;
+    @NonNull
+    @Override
+    public ShellImpl build() {
+        ShellImpl shell = null;
 
         // Root mount master
         if (!hasFlags(FLAG_NON_ROOT_SHELL) && hasFlags(FLAG_MOUNT_MASTER)) {
             try {
-                shell = exec("su", "--mount-master");
+                shell = build("su", "--mount-master");
                 if (!shell.isRoot())
                     shell = null;
             } catch (NoShellException ignore) {}
@@ -93,7 +87,7 @@ public final class BuilderImpl extends Shell.Builder {
         // Normal root shell
         if (shell == null && !hasFlags(FLAG_NON_ROOT_SHELL)) {
             try {
-                shell = exec("su");
+                shell = build("su");
                 if (!shell.isRoot()) {
                     shell = null;
                 }
@@ -105,13 +99,15 @@ public final class BuilderImpl extends Shell.Builder {
             if (!hasFlags(FLAG_NON_ROOT_SHELL)) {
                 Utils.setConfirmedRootState(false);
             }
-            shell = exec("sh");
+            shell = build("sh");
         }
 
         return shell;
     }
 
-    private Shell exec(String... commands) {
+    @NonNull
+    @Override
+    public ShellImpl build(String... commands) {
         try {
             Utils.log(TAG, "exec " + TextUtils.join(" ", commands));
             Process process = Runtime.getRuntime().exec(commands);
@@ -124,7 +120,7 @@ public final class BuilderImpl extends Shell.Builder {
 
     @NonNull
     @Override
-    public Shell build(Process process) {
+    public ShellImpl build(Process process) {
         ShellImpl shell;
         try {
             shell = new ShellImpl(this, process);
@@ -143,15 +139,5 @@ public final class BuilderImpl extends Shell.Builder {
             }
         }
         return shell;
-    }
-
-    @NonNull
-    @Override
-    public Shell build() {
-        if (command != null) {
-            return exec(command);
-        } else {
-            return start();
-        }
     }
 }
